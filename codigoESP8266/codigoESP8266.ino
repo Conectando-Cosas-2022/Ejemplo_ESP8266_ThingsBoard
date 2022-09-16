@@ -9,18 +9,19 @@
 /*========= CONSTANTES =========*/
 
 // Credenciales de la red WiFi
-const char* ssid = "HUAWEI-IoT...";
+const char* ssid = "HUAWEI-IoT";
 const char* password = "ORTWiFiIoT";
 
 // Host de ThingsBoard
 const char* mqtt_server = "demo.thingsboard.io";
+const int mqtt_port = 1883;
 
 // Token del dispositivo en ThingsBoard
 const char* token = "otH14jERQvbKChKgZSYm";
 
 // Tipo de sensor
 #define DHTTYPE DHT11 // DHT 11
-#define DHT_PIN 3     // Conexión en PIN D2
+#define DHT_PIN 3     // Conexión en PIN D3
 
 
 /*========= VARIABLES =========*/
@@ -89,20 +90,21 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   // En el nombre del tópico agrega un identificador del mensaje que queremos extraer para responder solicitudes
   String _topic = String(topic);
-  if (_topic.startsWith("v1/devices/me/rpc/request/")) {
+
+  // Detectar de qué tópico viene el "mensaje"
+  if (_topic.startsWith("v1/devices/me/rpc/request/")) { // El servidor "me pide que haga algo" (RPC)
     // Obtener el número de solicitud (request number)
-    String _number = _topic.substring(26);
+    String _request_id = _topic.substring(26);
 
     // Leer el objeto JSON (Utilizando ArduinoJson)
     deserializeJson(incoming_message, payload); // Interpretar el cuerpo del mensaje como Json
     String metodo = incoming_message["method"]; // Obtener del objeto Json, el método RPC solicitado
 
     // Ejecutar una acción de acuerdo al método solicitado
-    
     if (metodo=="checkStatus") {  // Chequear el estado del dispositivo. Se debe responder utilizando el mismo request_number
       
       char outTopic[128];
-      ("v1/devices/me/rpc/response/"+_number).toCharArray(outTopic,128);
+      ("v1/devices/me/rpc/response/"+_request_id).toCharArray(outTopic,128);
       
       DynamicJsonDocument resp(256);
       resp["status"] = true;
@@ -115,7 +117,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
       boolean estado = incoming_message["params"]; // Leer los parámetros del método
 
       if (estado) {
-        digitalWrite(LED_BUILTIN, LOW); // Encender LED
+        digitalWrite(LED_BUILTIN, LOW); // Encender LED 
         Serial.println("Encender LED");
       } else {
         digitalWrite(LED_BUILTIN, HIGH); // Apagar LED
@@ -124,7 +126,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
       // Actualizar el atributo relacionado
       DynamicJsonDocument resp(256);
-      resp["estado"] = estado;
+      resp["estado"] = !digitalRead(LED_BUILTIN);
       char buffer[256];
       serializeJson(resp, buffer);
       client.publish("v1/devices/me/attributes", buffer);  //Topico para actualizar atributos
@@ -161,10 +163,10 @@ void reconnect() {
 
 void setup() {
   // Conectividad
-  Serial.begin(115200);               // Inicializar conexión Serie para utilizar el Monitor
-  setup_wifi();                       // Establecer la conexión WiFi
-  client.setServer(mqtt_server, 1883);// Establecer los datos para la conexión MQTT
-  client.setCallback(callback);       // Establecer la función del callback para la llegada de mensajes en tópicos suscriptos
+  Serial.begin(115200);                   // Inicializar conexión Serie para utilizar el Monitor
+  setup_wifi();                           // Establecer la conexión WiFi
+  client.setServer(mqtt_server, mqtt_port);// Establecer los datos para la conexión MQTT
+  client.setCallback(callback);           // Establecer la función del callback para la llegada de mensajes en tópicos suscriptos
 
   // Sensores y actuadores
   pinMode(LED_BUILTIN, OUTPUT);       // Inicializar el LED como salida
@@ -179,7 +181,7 @@ void loop() {
   // === Conexión e intercambio de mensajes MQTT ===
   if (!client.connected()) {  // Controlar en cada ciclo la conexión con el servidor
     reconnect();              // Y recuperarla en caso de desconexión
-    }
+  }
   
   client.loop();              // Controlar si hay mensajes entrantes o para enviar al servidor
 
@@ -197,8 +199,8 @@ void loop() {
 
     // Publicar los datos en el tópio de telemetría para que el servidor los reciba
     DynamicJsonDocument resp(256);
-    resp["temperature"] = random(-5,30);  //temperature;  //Agrega el dato al Json, ej: "temperature": 21.5
-    resp["humidity"] = random(0,100);     //humidity;        //Agrega el dato al Json, ej: "humidituy: 75.0
+    resp["temperature"] = random(-5,30); //temperature;  //Agrega el dato al Json, ej: "temperature": 21.5
+    resp["humidity"] = random(10,90); //humidity;        //Agrega el dato al Json, ej: "humidituy: 75.0
     char buffer[256];
     serializeJson(resp, buffer);
     client.publish("v1/devices/me/telemetry", buffer);  // Publica el mensaje de telemetría
