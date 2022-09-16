@@ -9,7 +9,7 @@
 /*========= CONSTANTES =========*/
 
 // Credenciales de la red WiFi
-const char* ssid = "HUAWEI-IoT";
+const char* ssid = "HUAWEI-IoT...";
 const char* password = "ORTWiFiIoT";
 
 // Host de ThingsBoard
